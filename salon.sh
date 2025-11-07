@@ -24,48 +24,48 @@ MAIN_MENU() {
 
   read SERVICE_ID_SELECTED
 
-  # Only allow number for the input
+  # Only allow numbers for the input
   if [[ ! $SERVICE_ID_SELECTED =~ ^[0-9]+$ ]]; then
     MAIN_MENU "I could not find that service. What would you like today?"
-  fi
-
-  SERVICE_SELECTED=$($PSQL "Select name From services Where service_id = $SERVICE_ID_SELECTED")
+  else
+    SERVICE_ID=$($PSQL "Select service_id From services Where service_id = $SERVICE_ID_SELECTED")
 
   # If selected Service does not exist
-  if [[ -z $SERVICE_SELECTED ]]; then
+  if [[ -z $SERVICE_ID ]]; then
     # Clear the input
     SERVICE_ID_SELECTED=""
     MAIN_MENU "I could not find that service. What would you like today?"
-    return
   else
-    SERVICE_SELECTED=$(echo $SERVICE_SELECTED | sed -E 's/^ *| *$//g')
-  fi
+    SERVICE_SELECTED=$($PSQL "SELECT name FROM services WHERE service_id=$SERVICE_ID" | sed -E 's/^ *| *$//g')
 
-  echo -e "\nWhat's your phone number?"
-  read CUSTOMER_PHONE
+    echo -e "\nWhat's your phone number?"
+    read CUSTOMER_PHONE
 
-  CUSTOMER_ID=$($PSQL "Select customer_id From customers Where phone = '$CUSTOMER_PHONE'")
-  
-  if [[ -z $CUSTOMER_ID ]]; then
-    echo -e "\nI don't have a record for that phone number, what's your name?"
-    read CUSTOMER_NAME
-    CUSTOMER_RESULT=$($PSQL "Insert Into customers(name, phone) Values ('$CUSTOMER_NAME', '$CUSTOMER_PHONE')")
     CUSTOMER_ID=$($PSQL "Select customer_id From customers Where phone = '$CUSTOMER_PHONE'")
-  else
-    CUSTOMER_NAME=$($PSQL "Select name From customers Where phone = '$CUSTOMER_PHONE'" | sed -E 's/^ *| *$//g')
+
+    if [[ -z $CUSTOMER_ID ]]; then
+      echo -e "\nI don't have a record for that phone number, what's your name?"
+      read CUSTOMER_NAME
+      CUSTOMER_RESULT=$($PSQL "Insert Into customers(name, phone) Values ('$CUSTOMER_NAME', '$CUSTOMER_PHONE')")
+      CUSTOMER_ID=$($PSQL "Select customer_id From customers Where phone = '$CUSTOMER_PHONE'")
+    else
+      CUSTOMER_NAME=$($PSQL "Select name From customers Where phone = '$CUSTOMER_PHONE'" | sed -E 's/^ *| *$//g')
+    fi
+
+    echo -e "\nWhat time would you like your $SERVICE_SELECTED, $CUSTOMER_NAME?"
+    read SERVICE_TIME
+   
+    APPOINTMENT_RESULT=$($PSQL "Insert Into appointments(customer_id, service_id, time)
+                                Values ('$CUSTOMER_ID', $SERVICE_ID_SELECTED, '$SERVICE_TIME')")
+
+    if [[ $APPOINTMENT_RESULT == 'INSERT 0 1' ]]; then
+      echo -e "\nI have put you down for a $SERVICE_SELECTED at $SERVICE_TIME, $CUSTOMER_NAME."
+    fi
+
+    EXIT
+    fi
   fi
 
-  echo -e "\nWhat time would you like your $SERVICE_SELECTED, $CUSTOMER_NAME?"
-  read SERVICE_TIME
-  
-  APPOINTMENT_RESULT=$($PSQL "Insert Into appointments(customer_id, service_id, time)
-                              Values ('$CUSTOMER_ID', $SERVICE_ID_SELECTED, '$SERVICE_TIME')")
-  
-  if [[ $APPOINTMENT_RESULT == 'INSERT 0 1' ]]; then
-    echo -e "\nI have put you down for a $SERVICE_SELECTED at $SERVICE_TIME, $CUSTOMER_NAME."
-  fi
-
-  EXIT
 } 
 
 EXIT() {
